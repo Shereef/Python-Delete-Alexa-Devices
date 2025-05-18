@@ -123,8 +123,9 @@ def delete_entities():
     it constructs a URL and sends a DELETE request to that URL.
 
     Returns:
-        None. The response from each DELETE request is printed to the console.
+        list: A list of dictionaries containing information about failed deletions.
     """
+    failed_deletions = []
     DELETE_HEADERS = {
     "Host": HOST, 
     "Content-Length": "0",
@@ -147,6 +148,7 @@ def delete_entities():
                 print(f"Name: '{name}', Entity ID: '{entity_id}', Device ID: '{device_id_for_url}', Description: '{description}'")
                 url = f"{DELETE_URL}{device_id_for_url}"
 
+                deletion_success = False
                 for attempt in range(4):
                     DELETE_HEADERS["x-amzn-RequestId"] = str(uuid.uuid4())
 
@@ -162,14 +164,28 @@ def delete_entities():
                     if check_device_deleted(entity_id):
                         if DEBUG:
                             print(f"Entity {name}:{entity_id} successfully deleted.")
+                        deletion_success = True
                         break
                     else:
                         print(f"Entity {name}:{entity_id} was not deleted. Attempt {attempt + 1}.")
-                        if attempt == 3:
-                            print("Failed to delete entity after 4 attempts. Quitting.")
-                            return
+                        break
                     if SHOULD_SLEEP:
                         time.sleep(.2)
+                
+                if not deletion_success:
+                    failed_deletions.append({
+                        "name": name,
+                        "entity_id": entity_id,
+                        "device_id": device_id_for_url,
+                        "description": description
+                    })
+    
+    if failed_deletions:
+        print("\nFailed to delete the following entities:")
+        for failure in failed_deletions:
+            print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}', Device ID: '{failure['device_id']}', Description: '{failure['description']}'")
+    
+    return failed_deletions
 
 def get_graphql_endpoints():
     """
@@ -236,16 +252,17 @@ def delete_endpoints():
     it constructs a URL and sends a DELETE request to that URL.
 
     Returns:
-        None. The response from each DELETE request is printed to the console.
+        list: A list of dictionaries containing information about failed deletions.
     """
+    failed_deletions = []
     DELETE_HEADERS = {
     "Host": HOST, 
     "Content-Length": "0",
     "x-amzn-alexa-app": X_AMZN_ALEXA_APP,
     "Connection": "keep-alive",
     "Accept": ACCEPT_HEADER,
-    "User-Agent": "AppleWebKit PitanguiBridge/2.2.635412.0-[HARDWARE=iPhone17_3][SOFTWARE=18.2][DEVICE=iPhone]", # maybe change this to your device... dont know if this is necessary
-    "Accept-Language": "en-CA,en-CA;q=1.0,ar-CA;q=0.9", # maybe change this to your language... dont know if this is necessary
+    "User-Agent": "AppleWebKit PitanguiBridge/2.2.635412.0-[HARDWARE=iPhone17_3][SOFTWARE=18.2][DEVICE=iPhone]",
+    "Accept-Language": "en-CA,en-CA;q=1.0,ar-CA;q=0.9",
     "csrf": CSRF,
     "Cookie": COOKIE} 
     # Open the file for reading
@@ -262,6 +279,7 @@ def delete_endpoints():
                 print(f"Name: '{name}', Entity ID: '{entity_id}', Device ID: '{device_id_for_url}', Description: '{description}'")
                 url = f"{DELETE_URL}{device_id_for_url}"
 
+                deletion_success = False
                 for attempt in range(4):
                     DELETE_HEADERS["x-amzn-RequestId"] = str(uuid.uuid4())
 
@@ -277,18 +295,45 @@ def delete_endpoints():
                     if check_device_deleted(entity_id):
                         if DEBUG:
                             print(f"Entity {name}:{entity_id} successfully deleted.")
+                        deletion_success = True
                         break
                     else:
                         print(f"Entity {name}:{entity_id} was not deleted. Attempt {attempt + 1}.")
-                        if attempt == 3:
-                            print("Failed to delete entity after 4 attempts. Quitting.")
-                            return
+                        break
                     if SHOULD_SLEEP:
                         time.sleep(.2)
+                
+                if not deletion_success:
+                    failed_deletions.append({
+                        "name": name,
+                        "entity_id": entity_id,
+                        "device_id": device_id_for_url,
+                        "description": description
+                    })
+    
+    if failed_deletions:
+        print("\nFailed to delete the following endpoints:")
+        for failure in failed_deletions:
+            print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}', Device ID: '{failure['device_id']}', Description: '{failure['description']}'")
+    
+    return failed_deletions
 
 if __name__ == "__main__":
     get_entities()
-    delete_entities()
+    failed_entities = delete_entities()
     get_graphql_endpoints()
-    delete_endpoints()
+    failed_endpoints = delete_endpoints()
+    
+    if failed_entities or failed_endpoints:
+        print("\nSummary of all failed deletions:")
+        if failed_entities:
+            print("\nFailed Entities:")
+            for failure in failed_entities:
+                print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}'")
+        if failed_endpoints:
+            print("\nFailed Endpoints:")
+            for failure in failed_endpoints:
+                print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}'")
+    else:
+        print(f"Done, removed all entities and endpoints with a manufacturer name matching: {DESCRIPTION_FILTER_TEXT}")
 
