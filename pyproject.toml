@@ -1,0 +1,25 @@
+[project]
+name = "alexa_manager"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+classifiers = ["Private :: Do Not Upload"]
+dependencies = [
+    "pre-commit>=4.2.0",
+    "pydantic>=2.11.7",
+    "pytest>=8.4.1",
+    "requests>=2.31.0",
+    "rich>=14.0.0",
+    "tenacity>=9.1.2",
+]
+
+[project.scripts]
+alexa_manager = "alexa_manager.main:main"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

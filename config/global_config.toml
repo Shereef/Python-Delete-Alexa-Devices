@@ -1,0 +1,49 @@
+# -----------------------------
+# General Settings
+# -----------------------------
+# Enable debug logging (true/false). Set to true for verbose output.
+DEBUG = false
+# If true, sleep between requests to avoid rate limits (not usually needed).
+SHOULD_SLEEP = false
+# If true, prevents deletion of entities/groups (dry-run mode).
+DO_NOT_DELETE = false
+
+# -----------------------------
+# Alexa API Settings
+# -----------------------------
+# Alexa API host URL. Change to match your region (e.g., na-api-alexa.amazon.ca).
+ALEXA_HOST = "na-api-alexa.amazon.ca"
+# Cookie header value for Alexa API authentication. Extract from mobile app HTTP traffic.
+COOKIE = ""
+# x-amzn-alexa-app header value for Alexa API authentication. Extract from mobile app HTTP traffic.
+X_AMZN_ALEXA_APP = ""
+# CSRF token for Alexa API requests. Extract from the end of the Cookie value.
+CSRF = ""
+# Skill ID for Alexa device deletion. Extract from DELETE requests in mobile app traffic.
+DELETE_SKILL = ""
+# User agent string for Alexa API requests. Use the value from your mobile app HTTP traffic.
+USER_AGENT = "AppleWebKit PitanguiBridge/2.2.635412.0-[HARDWARE=iPhone17_3][SOFTWARE=18.2][DEVICE=iPhone]"
+# Alexa routine version. Usually does not need to be changed.
+ROUTINE_VERSION = "3.0.255246"
+# Text filter for device/entity descriptions. Only items containing this text will be affected.
+DESCRIPTION_FILTER_TEXT = "Home Assistant"
+
+# -----------------------------
+# Home Assistant Integration
+# -----------------------------
+# Home Assistant host and port. Required only for HA integration features.
+HA_HOST = "homeassistant.local:8123"
+# Home Assistant API key. Required only for HA integration features.
+HA_API_KEY = ""
+# Home Assistant device ID for the Alexa device. Used to send Alexa commands.
+ALEXA_DEVICE_ID = ""
+# Home Assistant entity ID for the Alexa device. Used to send commands.
+ALEXA_ENTITY_ID = ""
+# List of Home Assistant areas to ignore when syncing to Alexa groups.
+# Example: ["Garage", "Basement"]
+IGNORED_HA_AREAS = []
+
+# -----------------------------
+# Advanced/Debug Options
+# -----------------------------
+# (Add any advanced or debug options below)
