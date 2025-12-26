@@ -73,18 +73,28 @@ def get_entities(url = GET_URL):
         "skillId": "amzn1.ask.1p.smarthome"
     }
 
+    response_json = None
     response = requests.get(url, headers=GET_HEADERS, params=parameters, timeout=15)
 
-    if response.text.strip():
-        # Convert the response content to JSON
-        response_json = response.json()
+    if not response.text.strip():
+        print(f"Empty response received from server. Status code: {response.status_code}")
+        return None
 
-        # Open a file for writing
-        with open(DATA_FILE, 'w', encoding="utf_8") as file:
-            # Write the JSON data to the file
-            json.dump(response_json, file)
-    else:
-        print("Empty response received from server.")
+    if response.status_code != 200:
+        print(f"Non-200 response received from server. Status code: {response.status_code}")
+        try:
+            print("Response text:", response.text)
+        except Exception:
+            pass
+        return None
+
+    # Convert the response content to JSON
+    response_json = response.json()
+
+    # Open a file for writing
+    with open(DATA_FILE, 'w', encoding="utf_8") as file:
+        # Write the JSON data to the file
+        json.dump(response_json, file)
     
     return response_json
 
@@ -319,21 +329,27 @@ def delete_endpoints():
     return failed_deletions
 
 if __name__ == "__main__":
-    get_entities()
-    failed_entities = delete_entities()
-    get_graphql_endpoints()
-    failed_endpoints = delete_endpoints()
-    
-    if failed_entities or failed_endpoints:
+    entities = get_entities()
+    if not entities:
+        print("No entities retrieved; skipping delete_entities().")
+    else:
+        failed_entities = delete_entities()
+
+    graphql = get_graphql_endpoints()
+    if not graphql:
+        print("No GraphQL endpoints retrieved; skipping delete_endpoints().")
+    else:
+        failed_endpoints = delete_endpoints()
+
+    if (entities and failed_entities) or (graphql and failed_endpoints):
         print("\nSummary of all failed deletions:")
-        if failed_entities:
+        if entities and failed_entities:
             print("\nFailed Entities:")
             for failure in failed_entities:
                 print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}'")
-        if failed_endpoints:
+        if graphql and failed_endpoints:
             print("\nFailed Endpoints:")
             for failure in failed_endpoints:
                 print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}'")
     else:
         print(f"Done, removed all entities and endpoints with a manufacturer name matching: {DESCRIPTION_FILTER_TEXT}")
-
