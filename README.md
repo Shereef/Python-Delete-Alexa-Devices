@@ -38,23 +38,43 @@ You also need to have a valid Amazon account and access to the account you want 
 6. Let the page load completely.
 7. Delete a device using the Alexa app.
 8. Stop the capture in the HTTP Sniffer.
-9. Search for the `GET /api/behaviors/entities` request in the HTTP Sniffer.
-10. Copy the value of the `Cookie` header and paste it into the `COOKIE` variable in the script (Most likely, you will find the cookie value to be very long).
-11. Copy the value of the `x-amzn-alexa-app` header and paste it into the `X_AMZN_ALEXA_APP` variable in the script.
-12. Copy the CSRF value found at the end of the cookie and paste it into the `CSRF` variable
-13. Look for a `DELETE` request containing `/api/phoenix/appliance/`
-14. Copy the part after `api/phoenix/appliance/` but before `%3D%3D_` and set `DELETE_SKILL` variable to that
-    - e.g. SKILL_abc123abc (much longer) 
-16. Update the `HOST` to match the host your Alexa App is making requests to
-    - e.g. `eu-api-alexa.amazon.co.uk` 
-18. You can now try and run the script. If it works, you should see a list of all devices connected to the account you are logged in with. If you get an error, see the [Troubleshooting](#troubleshooting) section for more information.
+9. Extract the following values from your HTTP Sniffer:
+   - **HOST**: The host from the `GET /api/behaviors/entities` request (e.g., `na-api-alexa.amazon.com` or `eu-api-alexa.amazon.co.uk`)
+   - **COOKIE**: The full `Cookie` header value from the `GET /api/behaviors/entities` request (will be very long)
+   - **X_AMZN_ALEXA_APP**: The `x-amzn-alexa-app` header value from the `GET /api/behaviors/entities` request
+   - **DELETE_SKILL**: From the `DELETE` request containing `/api/phoenix/appliance/`, copy the part after `api/phoenix/appliance/` but before `%3D%3D_` (e.g., `SKILL_abc123abc...`)
+
+10. Run the script. You can provide values in three ways:
+
+    **Interactive mode** (prompts for all values):
+    ```bash
+    python main.py
+    ```
+    The script will prompt you for each value. CSRF is automatically extracted from the cookie.
+
+    **Command-line arguments** (skip prompts):
+    ```bash
+    python main.py --host na-api-alexa.amazon.com --cookie "..." --alexa-app "..." --delete-skill "..."
+    ```
+
+    **Environment variables** (skip prompts):
+    ```bash
+    export ALEXA_HOST="na-api-alexa.amazon.com"
+    export ALEXA_COOKIE="..."
+    export ALEXA_APP="..."
+    export ALEXA_DELETE_SKILL="..."
+    python main.py
+    ```
+
+    You can mix and match - provide some values via arguments/env vars and the script will only prompt for the missing ones.
+
+If it works, you should see a list of all devices connected to the account you are logged in with. If you get an error, see the [Troubleshooting](#troubleshooting) section for more information.
 
 ## Troubleshooting
 
-1. Try and change the `HOST` address in the script to your local Amazon address. You can find it in the HTTP Sniffer in both the requests you copied the headers from.
-2. Try and change the `USER_AGENT` variable in the script to the one you find in the HTTP Sniffer in both the requests you copied the headers from.
-3. If you used step 11.1, try and change the `CSRF` variable in the script to the one you find in the HTTP Sniffer in the `DELETE` request.
-4. If you used the script some time ago, try and update the `COOKIE` variable in the script to the one you find in the HTTP Sniffer in the `GET` and/or `DELETE` request.
+1. Try changing the `HOST` address to your local Amazon address. You can find it in the HTTP Sniffer in both the requests you copied the headers from. Provide it via `--host` argument or `ALEXA_HOST` environment variable.
+2. If you used the script some time ago, try updating the `COOKIE` value - cookies expire. Provide it via `--cookie` argument or `ALEXA_COOKIE` environment variable.
+3. Make sure you copied the complete cookie string - it should be very long. The CSRF token is automatically extracted from the cookie, so you don't need to provide it separately.
 
 ## Inspiration
 
