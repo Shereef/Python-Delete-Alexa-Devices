@@ -1,0 +1,10 @@
+{
+  "host": "eu-api-alexa.amazon.in",
+  "cookie": "paste-cookie-header-here",
+  "csrf": "paste-csrf-token-here",
+  "x_amzn_alexa_app": "paste-x-amzn-alexa-app-header-here",
+  "manufacturer_filter": "SmartLife",
+  "user_agent": "AppleWebKit PitanguiBridge/2.2.736478.0-[HARDWARE=iPhone][SOFTWARE=27.0][DEVICE=iPhone]",
+  "accept_language": "en-IN,en-US;q=1.0",
+  "dry_run": true
+}

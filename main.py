@@ -1,339 +1,333 @@
-"""
-This script is used to interact with the Amazon Alexa API.
-
-It contains four main functions: `get_entities`, `delete_entities`, `get_graphql_endpoints`, and `delete_endpoints`.
-
-`get_entities` sends a GET request to the specified URL to retrieve entities related to the Amazon Alexa skill.
-The response from the GET request is printed to the console and saved to a JSON file if it's not empty.
-
-`delete_entities` sends a DELETE request to the specified URL to remove entities related to the Amazon Alexa skill.
-The response from each DELETE request is printed to the console.
-
-`get_graphql_endpoints` sends a POST request to the specified URL to retrieve specific properties of endpoints using a GraphQL query.
-The response from the POST request is printed to the console and saved to a JSON file.
-
-`delete_endpoints` sends a DELETE request to the specified URL to remove endpoints related to the Amazon Alexa skill.
-The response from each DELETE request is printed to the console.
-
-The script uses predefined headers and parameters for the requests, which are defined as global variables at the top of the script.
-
-This script is intended to be run as a standalone file. When run, it first calls `get_entities` to retrieve the entities,
-then calls `delete_entities` to delete them, then calls `get_graphql_endpoints` to retrieve the endpoints,
-and finally calls `delete_endpoints` to delete them.
-"""
+import argparse
 import json
-import time # only needed if you want to add a delay between each delete request
-import requests
+import logging
+import os
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import quote
 
-# Settings
-DEBUG = False # set this to True if you want to see more output
-SHOULD_SLEEP = False # set this to True if you want to add a delay between each delete request
-DESCRIPTION_FILTER_TEXT = "Home Assistant"
+import requests
 
-# CHANGE THESE TO MATCH YOUR SETUP
-HOST = "na-api-alexa.amazon.ca"
-USER_AGENT = "AppleWebKit PitanguiBridge/2.2.635412.0-[HARDWARE=iPhone17_3][SOFTWARE=18.2][DEVICE=iPhone]"
-ROUTINE_VERSION = "3.0.255246"
-COOKIE = ';at-acbca="LONG STRING";sess-at-acbca="SHORT STRING";session-id=000-0000000-0000000;session-id-time=2366612930l;session-token=LOING_STRING;ubid-acbca=000-0000000-00000;x-acbca="SHORT_STRING";csrf=NUMBER'
-X_AMZN_ALEXA_APP = "LONG_STRING"
-CSRF = "NUMBER" # should look something like this: 'somenumber'; should match the cookie 
-DELETE_SKILL = "SKILL_LONG_STRING"
 
-# Constants
-DATA_FILE = "data.json"
-GRAPHQL_FILE = "graphql.json"
-GET_URL = f"https://{HOST}/api/behaviors/entities?skillId=amzn1.ask.1p.smarthome"
-DELETE_URL = f"https://{HOST}/api/phoenix/appliance/{DELETE_SKILL}%3D%3D_"
 ACCEPT_HEADER = "application/json; charset=utf-8"
-
-def get_entities(url = GET_URL): 
-    """
-    Sends a GET request to the specified URL to retrieve entities related to the Amazon Alexa skill.
-
-    The method uses predefined headers and parameters for the request, and saves the response to a JSON file if it's not empty.
-
-    Args:
-        url (str, optional): The URL to send the GET request to. Defaults to f"https://{HOST}/api/behaviors/entities?skillId=amzn1.ask.1p.smarthome".
-
-    Returns:
-        dict: The JSON response from the GET request.
-    """
-    GET_HEADERS = {
-        "Host": HOST, 
-        "Routines-Version": ROUTINE_VERSION ,
-        "Cookie": COOKIE,
-        "Connection": "keep-alive",
-        "x-amzn-alexa-app": X_AMZN_ALEXA_APP,
-        "Accept": ACCEPT_HEADER,
-        "User-Agent": USER_AGENT,
-    }
-
-    parameters = {
-        "skillId": "amzn1.ask.1p.smarthome"
-    }
-
-    response = requests.get(url, headers=GET_HEADERS, params=parameters, timeout=15)
-
-    if response.text.strip():
-        # Convert the response content to JSON
-        response_json = response.json()
-
-        # Open a file for writing
-        with open(DATA_FILE, 'w', encoding="utf_8") as file:
-            # Write the JSON data to the file
-            json.dump(response_json, file)
-    else:
-        print("Empty response received from server.")
-    
-    return response_json
-
-def check_device_deleted(entity_id):
-    """
-    Sends a GET request to check if the device was deleted.
-
-    Args:
-        entity_id (str): The ID of the entity to check.
-
-    Returns:
-        bool: True if the device was deleted, False otherwise.
-    """
-    url = f"https://{HOST}/api/smarthome/v1/presentation/devices/control/{entity_id}"
-    headers = {
-        "x-amzn-RequestId": str(uuid.uuid4()),
-        "Host": HOST,
-        "User-Agent": USER_AGENT,
-        "Cookie": COOKIE,
-        "Connection": "keep-alive",
-        "Accept": ACCEPT_HEADER,
-        "x-amzn-alexa-app": X_AMZN_ALEXA_APP
-    }
-    response = requests.get(url, headers=headers, timeout=10)
-    if DEBUG:
-        print(f"Check device deleted response status code: {response.status_code}")
-        print(f"Check device deleted response text: {response.text}")
-    return response.status_code == 404
-
-
-def delete_entities():
-    """
-    Sends a DELETE request to the specified URL to remove entities related to the Amazon Alexa skill.
-
-    The method uses predefined headers for the request. It reads entity data from a JSON file, and for each entity, 
-    it constructs a URL and sends a DELETE request to that URL.
-
-    Returns:
-        list: A list of dictionaries containing information about failed deletions.
-    """
-    failed_deletions = []
-    DELETE_HEADERS = {
-    "Host": HOST, 
-    "Content-Length": "0",
-    "x-amzn-alexa-app": X_AMZN_ALEXA_APP,
-    "Connection": "keep-alive",
-    "Accept": ACCEPT_HEADER,
-    "User-Agent": USER_AGENT,
-    "csrf": CSRF,
-    "Cookie": COOKIE} 
-    # Open the file for reading
-    with open(DATA_FILE, 'r', encoding="utf_8") as file:
-        # Load the JSON data from the file
-        response_json = json.load(file)
-        for item in response_json:
-            description = str(item["description"])
-            if DESCRIPTION_FILTER_TEXT in description:
-                entity_id = item["id"]
-                name = item["displayName"]
-                device_id_for_url = (description).replace(".", "%23").replace(" via Home Assistant","").lower()
-                print(f"Name: '{name}', Entity ID: '{entity_id}', Device ID: '{device_id_for_url}', Description: '{description}'")
-                url = f"{DELETE_URL}{device_id_for_url}"
-
-                deletion_success = False
-                for attempt in range(4):
-                    DELETE_HEADERS["x-amzn-RequestId"] = str(uuid.uuid4())
-
-                    # Send the DELETE request
-                    response = requests.delete(url, headers=DELETE_HEADERS, timeout=10)
-
-                    # Log the response details
-                    if DEBUG:
-                        print(f"Response Status Code: {response.status_code}")
-                        print(f"Response Text: {response.text}")
-
-                    # Check if the entity was deleted using the new function
-                    if check_device_deleted(entity_id):
-                        if DEBUG:
-                            print(f"Entity {name}:{entity_id} successfully deleted.")
-                        deletion_success = True
-                        break
-                    else:
-                        print(f"Entity {name}:{entity_id} was not deleted. Attempt {attempt + 1}.")
-                        break
-                    if SHOULD_SLEEP:
-                        time.sleep(.2)
-                
-                if not deletion_success:
-                    failed_deletions.append({
-                        "name": name,
-                        "entity_id": entity_id,
-                        "device_id": device_id_for_url,
-                        "description": description
-                    })
-    
-    if failed_deletions:
-        print("\nFailed to delete the following entities:")
-        for failure in failed_deletions:
-            print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}', Device ID: '{failure['device_id']}', Description: '{failure['description']}'")
-    
-    return failed_deletions
-
-def get_graphql_endpoints():
-    """
-    Sends a POST request to the specified URL to retrieve specific properties of endpoints.
-
-    The method uses predefined headers and a GraphQL query for the request, and saves the response to a JSON file.
-
-    Returns:
-        dict: The JSON response from the POST request.
-    """
-    url = f"https://{HOST}/nexus/v1/graphql"
-    headers = {
-        "Content-Length": "1839",
-        "Cookie": COOKIE,
-        "Host": HOST,
-        "Connection": "keep-alive",
-        "Accept-Language": "en-CA,en-CA;q=1.0,ar-CA;q=0.9",
-        "csrf": CSRF,
-        "Content-Type": "application/json; charset=utf-8",
-        "x-amzn-RequestId": str(uuid.uuid4()),
-        "User-Agent": USER_AGENT,
-        "Accept-Encoding": "gzip, deflate, br",
-        "x-amzn-alexa-app": X_AMZN_ALEXA_APP,
-        "Accept": ACCEPT_HEADER
-    }
-    data = {
-        "query": """
-        query CustomerSmartHome {
-            endpoints(endpointsQueryParams: { paginationParams: { disablePagination: true } }) {
-                items {
-                    friendlyName
-                    legacyAppliance {
-                        applianceId
-                        mergedApplianceIds
-                        connectedVia
-                        applianceKey
-                        appliancePairs
-                        modelName
-                        friendlyDescription
-                        version
-                        friendlyName
-                        manufacturerName
-                    }
-                }
+DEFAULT_CONFIG_FILE = "config.json"
+DEFAULT_LOG_FILE = "app.log"
+DEFAULT_USER_AGENT = "AppleWebKit PitanguiBridge/2.2.736478.0-[HARDWARE=iPhone][SOFTWARE=27.0][DEVICE=iPhone]"
+GRAPHQL_QUERY = """
+query CustomerSmartHome {
+    endpoints(endpointsQueryParams: { paginationParams: { disablePagination: true } }) {
+        items {
+            friendlyName
+            legacyAppliance {
+                applianceId
+                applianceKey
+                friendlyDescription
+                manufacturerName
             }
         }
-        """
     }
-    response = requests.post(url, headers=headers, json=data, timeout=15)
-    response_json = response.json()
+}
+"""
 
-    # Open a file for writing
-    with open(GRAPHQL_FILE, 'w', encoding="utf_8") as file:
-        # Write the JSON data to the file
-        json.dump(response_json, file)
-    # print(json.dumps(response_json, indent=4))
-    return response_json
+logger = logging.getLogger(__name__)
 
-def delete_endpoints():
-    """
-    Sends a DELETE request to the specified URL to remove endpoints related to the Amazon Alexa skill.
 
-    The method uses predefined headers for the request. It reads endpoint data from a JSON file, and for each endpoint, 
-    it constructs a URL and sends a DELETE request to that URL.
+@dataclass(frozen=True)
+class Settings:
+    host: str
+    cookie: str
+    csrf: str
+    x_amzn_alexa_app: str
+    manufacturer_filter: str
+    user_agent: str
+    accept_language: str
+    timeout: int
+    retries: int
+    log_file: str
+    log_level: str
+    save_graphql: str | None
+    dry_run: bool
 
-    Returns:
-        list: A list of dictionaries containing information about failed deletions.
-    """
-    failed_deletions = []
-    DELETE_HEADERS = {
-    "Host": HOST, 
-    "Content-Length": "0",
-    "x-amzn-alexa-app": X_AMZN_ALEXA_APP,
-    "Connection": "keep-alive",
-    "Accept": ACCEPT_HEADER,
-    "User-Agent": "AppleWebKit PitanguiBridge/2.2.635412.0-[HARDWARE=iPhone17_3][SOFTWARE=18.2][DEVICE=iPhone]",
-    "Accept-Language": "en-CA,en-CA;q=1.0,ar-CA;q=0.9",
-    "csrf": CSRF,
-    "Cookie": COOKIE} 
-    # Open the file for reading
-    with open(GRAPHQL_FILE, 'r', encoding="utf_8") as file:
-        # Load the JSON data from the file
-        response_json = json.load(file)
-        for item in response_json["data"]["endpoints"]["items"]:
-            description = str(item["legacyAppliance"]["friendlyDescription"])
-            manufacturer_name = str(item["legacyAppliance"]["manufacturerName"])
-            if DESCRIPTION_FILTER_TEXT in manufacturer_name:
-                entity_id = item["legacyAppliance"]["applianceKey"]
-                name = item["friendlyName"]
-                device_id_for_url = (description).replace(".", "%23").replace(" via Home Assistant","").lower()
-                print(f"Name: '{name}', Entity ID: '{entity_id}', Device ID: '{device_id_for_url}', Description: '{description}'")
-                url = f"{DELETE_URL}{device_id_for_url}"
 
-                deletion_success = False
-                for attempt in range(4):
-                    DELETE_HEADERS["x-amzn-RequestId"] = str(uuid.uuid4())
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Delete Alexa cloud-connected devices by GraphQL applianceId."
+    )
+    parser.add_argument("--config", default=DEFAULT_CONFIG_FILE, help="Path to optional JSON config file.")
+    parser.add_argument("--host", help="Alexa API host, for example eu-api-alexa.amazon.in.")
+    parser.add_argument("--manufacturer", help="Manufacturer filter, for example SmartLife.")
+    parser.add_argument("--user-agent", help="User-Agent captured from the Alexa app.")
+    parser.add_argument("--accept-language", help="Accept-Language captured from the Alexa app.")
+    parser.add_argument("--timeout", type=int, help="Request timeout in seconds.")
+    parser.add_argument("--retries", type=int, help="Delete retry count per appliance.")
+    parser.add_argument("--dry-run", action="store_true", help="List matching devices without deleting them.")
+    parser.add_argument("--save-graphql", help="Optional path to write the raw GraphQL response.")
+    parser.add_argument("--log-file", help="Path to the log file.")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Log level.")
+    return parser.parse_args()
 
-                    # Send the DELETE request
-                    response = requests.delete(url, headers=DELETE_HEADERS, timeout=10)
 
-                    # Log the response details
-                    if DEBUG:
-                        print(f"Response Status Code: {response.status_code}")
-                        print(f"Response Text: {response.text}")
+def load_config(path):
+    config_path = Path(path)
+    if not config_path.exists():
+        return {}
 
-                    # Check if the entity was deleted using the new function
-                    if check_device_deleted(entity_id):
-                        if DEBUG:
-                            print(f"Entity {name}:{entity_id} successfully deleted.")
-                        deletion_success = True
-                        break
-                    else:
-                        print(f"Entity {name}:{entity_id} was not deleted. Attempt {attempt + 1}.")
-                        break
-                    if SHOULD_SLEEP:
-                        time.sleep(.2)
-                
-                if not deletion_success:
-                    failed_deletions.append({
-                        "name": name,
-                        "entity_id": entity_id,
-                        "device_id": device_id_for_url,
-                        "description": description
-                    })
-    
-    if failed_deletions:
-        print("\nFailed to delete the following endpoints:")
-        for failure in failed_deletions:
-            print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}', Device ID: '{failure['device_id']}', Description: '{failure['description']}'")
-    
-    return failed_deletions
+    with config_path.open("r", encoding="utf_8") as file:
+        return json.load(file)
+
+
+def config_value(config, *keys):
+    for key in keys:
+        if key in config and config[key] not in (None, ""):
+            return config[key]
+    return None
+
+
+def as_bool(value):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def setting(args, config, arg_name, env_name, *config_keys, default=None):
+    arg_value = getattr(args, arg_name, None)
+    return (
+        arg_value
+        or os.getenv(env_name)
+        or config_value(config, *config_keys)
+        or default
+    )
+
+
+def build_settings(args, config):
+    settings = Settings(
+        host=setting(args, config, "host", "ALEXA_HOST", "host"),
+        cookie=setting(args, config, "cookie", "ALEXA_COOKIE", "cookie"),
+        csrf=setting(args, config, "csrf", "ALEXA_CSRF", "csrf"),
+        x_amzn_alexa_app=setting(
+            args,
+            config,
+            "x_amzn_alexa_app",
+            "ALEXA_X_AMZN_ALEXA_APP",
+            "x_amzn_alexa_app",
+            "x-amzn-alexa-app",
+        ),
+        manufacturer_filter=setting(
+            args,
+            config,
+            "manufacturer",
+            "ALEXA_MANUFACTURER_FILTER",
+            "manufacturer_filter",
+            "manufacturer",
+            default="SmartLife",
+        ),
+        user_agent=setting(
+            args,
+            config,
+            "user_agent",
+            "ALEXA_USER_AGENT",
+            "user_agent",
+            default=DEFAULT_USER_AGENT,
+        ),
+        accept_language=setting(
+            args,
+            config,
+            "accept_language",
+            "ALEXA_ACCEPT_LANGUAGE",
+            "accept_language",
+            default="en-IN,en-US;q=1.0",
+        ),
+        timeout=int(setting(args, config, "timeout", "ALEXA_TIMEOUT", "timeout", default=15)),
+        retries=int(setting(args, config, "retries", "ALEXA_DELETE_RETRIES", "retries", default=4)),
+        log_file=setting(args, config, "log_file", "ALEXA_LOG_FILE", "log_file", default=DEFAULT_LOG_FILE),
+        log_level=str(setting(args, config, "log_level", "ALEXA_LOG_LEVEL", "log_level", default="INFO")).upper(),
+        save_graphql=args.save_graphql or os.getenv("ALEXA_SAVE_GRAPHQL") or config_value(config, "save_graphql"),
+        dry_run=args.dry_run or as_bool(os.getenv("ALEXA_DRY_RUN")) or as_bool(config_value(config, "dry_run")),
+    )
+
+    missing = [
+        name
+        for name in ("host", "cookie", "csrf", "x_amzn_alexa_app")
+        if not getattr(settings, name)
+    ]
+    if missing:
+        names = ", ".join(missing)
+        raise SystemExit(
+            f"Missing required configuration: {names}. "
+            f"Set them in {args.config} or with ALEXA_HOST, ALEXA_COOKIE, "
+            "ALEXA_CSRF, and ALEXA_X_AMZN_ALEXA_APP."
+        )
+
+    if not hasattr(logging, settings.log_level):
+        raise SystemExit(f"Invalid log level: {settings.log_level}")
+
+    return settings
+
+
+def configure_logging(settings):
+    logging.basicConfig(
+        filename=settings.log_file,
+        filemode="a",
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=getattr(logging, settings.log_level),
+    )
+
+
+def create_session(settings):
+    session = requests.Session()
+    session.headers.update(
+        {
+            "Host": settings.host,
+            "Cookie": settings.cookie,
+            "Connection": "keep-alive",
+            "Accept": ACCEPT_HEADER,
+            "Accept-Language": settings.accept_language,
+            "User-Agent": settings.user_agent,
+            "csrf": settings.csrf,
+            "x-amzn-alexa-app": settings.x_amzn_alexa_app,
+        }
+    )
+    return session
+
+
+def fetch_graphql_endpoints(session, settings):
+    url = f"https://{settings.host}/nexus/v1/graphql"
+    headers = {
+        "Content-Type": ACCEPT_HEADER,
+        "x-amzn-RequestId": str(uuid.uuid4()),
+    }
+    response = session.post(
+        url,
+        headers=headers,
+        json={"query": GRAPHQL_QUERY},
+        timeout=settings.timeout,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def matching_endpoints(response_json, manufacturer_filter):
+    items = response_json.get("data", {}).get("endpoints", {}).get("items", [])
+    filter_text = manufacturer_filter.casefold()
+
+    for item in items:
+        legacy_appliance = item.get("legacyAppliance") or {}
+        manufacturer_name = str(legacy_appliance.get("manufacturerName", ""))
+        if filter_text not in manufacturer_name.casefold():
+            continue
+
+        yield {
+            "name": item.get("friendlyName") or legacy_appliance.get("friendlyName") or "Unknown",
+            "manufacturer": manufacturer_name,
+            "description": str(legacy_appliance.get("friendlyDescription", "")),
+            "appliance_id": legacy_appliance.get("applianceId"),
+            "appliance_key": legacy_appliance.get("applianceKey"),
+        }
+
+
+def delete_endpoint(session, settings, endpoint):
+    appliance_id = endpoint["appliance_id"]
+    url = f"https://{settings.host}/api/phoenix/appliance/{quote(appliance_id, safe='')}"
+
+    for attempt in range(1, settings.retries + 1):
+        try:
+            response = session.delete(
+                url,
+                headers={
+                    "Content-Length": "0",
+                    "x-amzn-RequestId": str(uuid.uuid4()),
+                },
+                timeout=settings.timeout,
+            )
+        except requests.exceptions.RequestException as error:
+            logger.error("Delete request failed for %s: %s", appliance_id, error)
+            continue
+
+        logger.debug(
+            "Delete response for %s - attempt %s/%s - status %s - text %s",
+            appliance_id,
+            attempt,
+            settings.retries,
+            response.status_code,
+            response.text,
+        )
+
+        if 200 <= response.status_code < 300:
+            return True, response.status_code
+
+    return False, response.status_code if "response" in locals() else "request-error"
+
+
+def print_summary(metrics):
+    summary = (
+        "\nDeletion summary:\n"
+        f"Matched devices: {metrics['matched']}\n"
+        f"Dry-run only: {metrics['dry_run']}\n"
+        f"Deleted successfully: {metrics['deleted']}\n"
+        f"Failed: {metrics['failed']}\n"
+        f"Skipped: {metrics['skipped']}"
+    )
+    print(summary)
+    logger.info(summary)
+
+
+def main():
+    args = parse_args()
+    config = load_config(args.config)
+    settings = build_settings(args, config)
+    configure_logging(settings)
+
+    metrics = {
+        "matched": 0,
+        "dry_run": 0,
+        "deleted": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+
+    with create_session(settings) as session:
+        try:
+            response_json = fetch_graphql_endpoints(session, settings)
+        except (requests.exceptions.RequestException, ValueError) as error:
+            raise SystemExit(f"Failed to fetch Alexa endpoints: {error}") from error
+        if settings.save_graphql:
+            with Path(settings.save_graphql).open("w", encoding="utf_8") as file:
+                json.dump(response_json, file, indent=2)
+
+        endpoints = list(matching_endpoints(response_json, settings.manufacturer_filter))
+
+        for endpoint in endpoints:
+            metrics["matched"] += 1
+            appliance_id = endpoint["appliance_id"]
+            name = endpoint["name"]
+
+            if not appliance_id:
+                metrics["skipped"] += 1
+                print(f"SKIP: {name} has no applianceId")
+                logger.error("Skipping %s because it has no applianceId: %s", name, endpoint)
+                continue
+
+            if settings.dry_run:
+                metrics["dry_run"] += 1
+                print(f"DRY RUN: would delete {name} ({appliance_id})")
+                continue
+
+            success, status_code = delete_endpoint(session, settings, endpoint)
+            if success:
+                metrics["deleted"] += 1
+                print(f"DELETED: {name} ({appliance_id})")
+            else:
+                metrics["failed"] += 1
+                print(f"FAILED: {name} ({appliance_id}) - last status {status_code}")
+
+        if not endpoints:
+            print(f"No devices matched manufacturer filter: {settings.manufacturer_filter}")
+
+    print_summary(metrics)
+
 
 if __name__ == "__main__":
-    get_entities()
-    failed_entities = delete_entities()
-    get_graphql_endpoints()
-    failed_endpoints = delete_endpoints()
-    
-    if failed_entities or failed_endpoints:
-        print("\nSummary of all failed deletions:")
-        if failed_entities:
-            print("\nFailed Entities:")
-            for failure in failed_entities:
-                print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}'")
-        if failed_endpoints:
-            print("\nFailed Endpoints:")
-            for failure in failed_endpoints:
-                print(f"Name: '{failure['name']}', Entity ID: '{failure['entity_id']}'")
-    else:
-        print(f"Done, removed all entities and endpoints with a manufacturer name matching: {DESCRIPTION_FILTER_TEXT}")
-
+    main()
