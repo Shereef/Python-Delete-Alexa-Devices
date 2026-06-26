@@ -30,31 +30,55 @@ You also need to have a valid Amazon account and access to the account you want 
 
 ## Usage
 
-1. Download and install an HTTP Sniffer on your device.
-2. Open the Alexa app and log in with the account you want to delete entities from.
+The script reads credentials from environment variables or from a local `config.json` file. Do not commit your real config.
+
+1. Download and install an HTTP sniffer on your device.
+2. Open the Alexa app and log in with the account you want to clean up.
 3. Navigate to the `Devices` tab.
-4. Open the HTTP Sniffer and start a new capture.
-5. In the Alexa app, refresh the device list by pulling down.
-6. Let the page load completely.
-7. Delete a device using the Alexa app.
-8. Stop the capture in the HTTP Sniffer.
-9. Search for the `GET /api/behaviors/entities` request in the HTTP Sniffer.
-10. Copy the value of the `Cookie` header and paste it into the `COOKIE` variable in the script (Most likely, you will find the cookie value to be very long).
-11. Copy the value of the `x-amzn-alexa-app` header and paste it into the `X_AMZN_ALEXA_APP` variable in the script.
-12. Copy the CSRF value found at the end of the cookie and paste it into the `CSRF` variable
-13. Look for a `DELETE` request containing `/api/phoenix/appliance/`
-14. Copy the part after `api/phoenix/appliance/` but before `%3D%3D_` and set `DELETE_SKILL` variable to that
-    - e.g. SKILL_abc123abc (much longer) 
-16. Update the `HOST` to match the host your Alexa App is making requests to
-    - e.g. `eu-api-alexa.amazon.co.uk` 
-18. You can now try and run the script. If it works, you should see a list of all devices connected to the account you are logged in with. If you get an error, see the [Troubleshooting](#troubleshooting) section for more information.
+4. Start a capture, refresh the device list, and delete one cloud-connected device manually.
+5. Capture these request values:
+   - `Host`, for example `eu-api-alexa.amazon.in`
+   - `Cookie`
+   - `csrf`
+   - `x-amzn-alexa-app`
+   - optionally `User-Agent` and `Accept-Language`
+6. Copy `config.example.json` to `config.json` and fill in the captured values.
+7. Start with a dry run:
+
+```sh
+python main.py --dry-run
+```
+
+8. If the dry run lists the devices you expect, set `"dry_run": false` in `config.json` or run:
+
+```sh
+python main.py
+```
+
+You can also use environment variables instead of `config.json`:
+
+```sh
+export ALEXA_HOST="eu-api-alexa.amazon.in"
+export ALEXA_COOKIE="paste-cookie-header-here"
+export ALEXA_CSRF="paste-csrf-token-here"
+export ALEXA_X_AMZN_ALEXA_APP="paste-x-amzn-alexa-app-header-here"
+python main.py --dry-run
+```
+
+The script fetches devices with GraphQL and deletes matching devices with:
+
+```text
+DELETE /api/phoenix/appliance/<legacyAppliance.applianceId>
+```
+
+By default it filters for manufacturer names containing `SmartLife`. Override that with `--manufacturer` or `ALEXA_MANUFACTURER_FILTER`.
 
 ## Troubleshooting
 
-1. Try and change the `HOST` address in the script to your local Amazon address. You can find it in the HTTP Sniffer in both the requests you copied the headers from.
-2. Try and change the `USER_AGENT` variable in the script to the one you find in the HTTP Sniffer in both the requests you copied the headers from.
-3. If you used step 11.1, try and change the `CSRF` variable in the script to the one you find in the HTTP Sniffer in the `DELETE` request.
-4. If you used the script some time ago, try and update the `COOKIE` variable in the script to the one you find in the HTTP Sniffer in the `GET` and/or `DELETE` request.
+1. Confirm `ALEXA_HOST` or `host` matches the host captured from your Alexa app.
+2. Refresh `Cookie`, `csrf`, and `x-amzn-alexa-app` if the script previously worked but now fails.
+3. Try the captured `User-Agent` and `Accept-Language` values if Amazon rejects requests.
+4. Run `python main.py --dry-run --save-graphql graphql.json` to inspect the returned `legacyAppliance.applianceId` values before deleting.
 
 ## Inspiration
 

@@ -1,2 +1,8 @@
 graphql.json
 data.json
+app.log
+config.json
+.env
+.DS_Store
+__pycache__/
+*.py[cod]
