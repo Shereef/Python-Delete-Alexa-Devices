@@ -80,6 +80,14 @@ By default it filters for manufacturer names containing `SmartLife`. Override th
 3. Try the captured `User-Agent` and `Accept-Language` values if Amazon rejects requests.
 4. Run `python main.py --dry-run --save-graphql graphql.json` to inspect the returned `legacyAppliance.applianceId` values before deleting.
 
+## Contributing
+
+Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+To report a security vulnerability, please follow our [Security Policy](SECURITY.md).
+
 ## Inspiration
 
 An Amazon employee told me "have fun with that" when I asked him how to delete devices connected to an Alexa skill. So I did.
