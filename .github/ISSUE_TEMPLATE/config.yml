@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://shereef.net/contact
+    about: Please securely report any security vulnerabilities here. Do NOT open a public issue.
