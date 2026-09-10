@@ -9,7 +9,6 @@ from urllib.parse import quote
 
 import requests
 
-
 ACCEPT_HEADER = "application/json; charset=utf-8"
 DEFAULT_CONFIG_FILE = "config.json"
 DEFAULT_LOG_FILE = "app.log"
@@ -54,17 +53,35 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Delete Alexa cloud-connected devices by GraphQL applianceId."
     )
-    parser.add_argument("--config", default=DEFAULT_CONFIG_FILE, help="Path to optional JSON config file.")
-    parser.add_argument("--host", help="Alexa API host, for example eu-api-alexa.amazon.in.")
-    parser.add_argument("--manufacturer", help="Manufacturer filter, for example SmartLife.")
+    parser.add_argument(
+        "--config",
+        default=DEFAULT_CONFIG_FILE,
+        help="Path to optional JSON config file.",
+    )
+    parser.add_argument(
+        "--host", help="Alexa API host, for example eu-api-alexa.amazon.in."
+    )
+    parser.add_argument(
+        "--manufacturer", help="Manufacturer filter, for example SmartLife."
+    )
     parser.add_argument("--user-agent", help="User-Agent captured from the Alexa app.")
-    parser.add_argument("--accept-language", help="Accept-Language captured from the Alexa app.")
+    parser.add_argument(
+        "--accept-language", help="Accept-Language captured from the Alexa app."
+    )
     parser.add_argument("--timeout", type=int, help="Request timeout in seconds.")
     parser.add_argument("--retries", type=int, help="Delete retry count per appliance.")
-    parser.add_argument("--dry-run", action="store_true", help="List matching devices without deleting them.")
-    parser.add_argument("--save-graphql", help="Optional path to write the raw GraphQL response.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List matching devices without deleting them.",
+    )
+    parser.add_argument(
+        "--save-graphql", help="Optional path to write the raw GraphQL response."
+    )
     parser.add_argument("--log-file", help="Path to the log file.")
-    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Log level.")
+    parser.add_argument(
+        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Log level."
+    )
     return parser.parse_args()
 
 
@@ -140,12 +157,38 @@ def build_settings(args, config):
             "accept_language",
             default="en-IN,en-US;q=1.0",
         ),
-        timeout=int(setting(args, config, "timeout", "ALEXA_TIMEOUT", "timeout", default=15)),
-        retries=int(setting(args, config, "retries", "ALEXA_DELETE_RETRIES", "retries", default=4)),
-        log_file=setting(args, config, "log_file", "ALEXA_LOG_FILE", "log_file", default=DEFAULT_LOG_FILE),
-        log_level=str(setting(args, config, "log_level", "ALEXA_LOG_LEVEL", "log_level", default="INFO")).upper(),
-        save_graphql=args.save_graphql or os.getenv("ALEXA_SAVE_GRAPHQL") or config_value(config, "save_graphql"),
-        dry_run=args.dry_run or as_bool(os.getenv("ALEXA_DRY_RUN")) or as_bool(config_value(config, "dry_run")),
+        timeout=int(
+            setting(args, config, "timeout", "ALEXA_TIMEOUT", "timeout", default=15)
+        ),
+        retries=int(
+            setting(
+                args, config, "retries", "ALEXA_DELETE_RETRIES", "retries", default=4
+            )
+        ),
+        log_file=setting(
+            args,
+            config,
+            "log_file",
+            "ALEXA_LOG_FILE",
+            "log_file",
+            default=DEFAULT_LOG_FILE,
+        ),
+        log_level=str(
+            setting(
+                args,
+                config,
+                "log_level",
+                "ALEXA_LOG_LEVEL",
+                "log_level",
+                default="INFO",
+            )
+        ).upper(),
+        save_graphql=args.save_graphql
+        or os.getenv("ALEXA_SAVE_GRAPHQL")
+        or config_value(config, "save_graphql"),
+        dry_run=args.dry_run
+        or as_bool(os.getenv("ALEXA_DRY_RUN"))
+        or as_bool(config_value(config, "dry_run")),
     )
 
     missing = [
@@ -220,7 +263,9 @@ def matching_endpoints(response_json, manufacturer_filter):
             continue
 
         yield {
-            "name": item.get("friendlyName") or legacy_appliance.get("friendlyName") or "Unknown",
+            "name": item.get("friendlyName")
+            or legacy_appliance.get("friendlyName")
+            or "Unknown",
             "manufacturer": manufacturer_name,
             "description": str(legacy_appliance.get("friendlyDescription", "")),
             "appliance_id": legacy_appliance.get("applianceId"),
@@ -230,7 +275,9 @@ def matching_endpoints(response_json, manufacturer_filter):
 
 def delete_endpoint(session, settings, endpoint):
     appliance_id = endpoint["appliance_id"]
-    url = f"https://{settings.host}/api/phoenix/appliance/{quote(appliance_id, safe='')}"
+    url = (
+        f"https://{settings.host}/api/phoenix/appliance/{quote(appliance_id, safe='')}"
+    )
 
     for attempt in range(1, settings.retries + 1):
         try:
@@ -297,7 +344,9 @@ def main():
             with Path(settings.save_graphql).open("w", encoding="utf_8") as file:
                 json.dump(response_json, file, indent=2)
 
-        endpoints = list(matching_endpoints(response_json, settings.manufacturer_filter))
+        endpoints = list(
+            matching_endpoints(response_json, settings.manufacturer_filter)
+        )
 
         for endpoint in endpoints:
             metrics["matched"] += 1
@@ -307,7 +356,9 @@ def main():
             if not appliance_id:
                 metrics["skipped"] += 1
                 print(f"SKIP: {name} has no applianceId")
-                logger.error("Skipping %s because it has no applianceId: %s", name, endpoint)
+                logger.error(
+                    "Skipping %s because it has no applianceId: %s", name, endpoint
+                )
                 continue
 
             if settings.dry_run:
@@ -324,7 +375,9 @@ def main():
                 print(f"FAILED: {name} ({appliance_id}) - last status {status_code}")
 
         if not endpoints:
-            print(f"No devices matched manufacturer filter: {settings.manufacturer_filter}")
+            print(
+                f"No devices matched manufacturer filter: {settings.manufacturer_filter}"
+            )
 
     print_summary(metrics)
 
