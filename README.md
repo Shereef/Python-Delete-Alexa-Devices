@@ -99,17 +99,30 @@ If you prefer a simpler, sniffer-free approach, there is a browser-based JavaScr
 
 - **Quick one-liner (paste into the browser Console on the Alexa region domain that returns your device JSON):**
 
-```
+```javascript
 devices = await (await fetch('/nexus/v1/graphql', { method: 'POST', headers: {"Content-Type": "application/json","Accept": "application/json"}, body: JSON.stringify({query: `query { endpoints { items { friendlyName legacyAppliance { applianceId }}} } `})})).json();for (const device of devices.data.endpoints.items) console.log(await fetch(`/api/phoenix/appliance/${encodeURIComponent(device.legacyAppliance.applianceId)}`, { method: "DELETE", headers: { "Accept": "application/json", "Content-Type": "application/json"}}))
+```
+
+- **Safari Console:** Safari does not support top-level `await`. Wrap the code in an async function:
+
+```javascript
+(async () => {
+  const devices = await (await fetch('/nexus/v1/graphql', { method: 'POST', headers: {"Content-Type": "application/json","Accept": "application/json"}, body: JSON.stringify({query: `query { endpoints { items { friendlyName legacyAppliance { applianceId }}} } `})})).json();
+  for (const device of devices.data.endpoints.items) {
+    console.log(await fetch(`/api/phoenix/appliance/${encodeURIComponent(device.legacyAppliance.applianceId)}`, { method: "DELETE", headers: { "Accept": "application/json", "Content-Type": "application/json"}}));
+  }
+})();
 ```
 
 - **If the one-liner fails, CSRF fallback:** some accounts require a CSRF token. You can obtain a CSRF token from an Amazon page (for example by inspecting a cart update request on www.amazon.com/.de) and then run:
 
-```
+```javascript
 csrf = '<your-csrf-value-here>'
 devices = await (await fetch('/nexus/v1/graphql', { method: 'POST', headers: {"Content-Type": "application/json","Accept": "application/json"}, body: JSON.stringify({query: `query { endpoints { items { friendlyName legacyAppliance { applianceId }}} } `})})).json()
 for (const device of devices.data.endpoints.items) console.log(await fetch(`/api/phoenix/appliance/${encodeURIComponent(device.legacyAppliance.applianceId)}`, { method: "DELETE", headers: { "Accept": "application/json", "Content-Type": "application/json", "csrf": csrf }}))
 ```
+
+> **Note:** The deletion methods (both Python and JS) rely on the `legacyAppliance` API. This works for many devices (e.g., TP-Link, Kasa, Gree) but may fail for "non-legacy" devices like Home Assistant integrations (Issue #3). These devices might return a 200 OK status but remain undeleted.
 
 - **Usage summary:**
     - Log in to your Amazon/Alexa account in a desktop browser.
