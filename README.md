@@ -12,6 +12,10 @@ I do not know **anything** about how the Alexa API works. I just reverse enginee
 
 If you are having trouble setting up the Python script or extracting cookies, there is a much simpler, sniffer-free approach that uses your browser's Developer Console. See [ALTERNATIVE_BROWSER_METHOD.md](ALTERNATIVE_BROWSER_METHOD.md) for instructions.
 
+## Alternative Tools
+
+You might also want to check out [Alexa-Device-Manager](https://github.com/stereodruid/Alexa-Device-Manager/). Note that we haven't tested this tool.
+
 ## Prerequisites
 
 The script is written in Python 3.11 and requires the following packages:
